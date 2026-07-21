@@ -1,0 +1,339 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-21T21:22:19Z",
+  "offers": [
+    {
+      "id": "nvidia-nim-api-catalog",
+      "priority": 1,
+      "provider": "NVIDIA",
+      "name": "NIM API catalog",
+      "model": "Hosted foundation-model endpoints",
+      "accessTypes": [
+        "API"
+      ],
+      "summary": "Free NVIDIA-hosted NIM endpoints for prototyping and learning.",
+      "detail": "Developer Program members can use preview APIs and downloadable NIM microservices for research, development, testing, and experimentation.",
+      "expiresAt": null,
+      "expiryNote": "Available for the duration of Developer Program membership; NVIDIA publishes no fixed end date.",
+      "primaryLimit": "Development use only",
+      "limitations": [
+        "Hosted endpoint rate limits vary by model, use case, and current traffic.",
+        "Production use requires an NVIDIA AI Enterprise license.",
+        "Not every downloadable NIM is available as a hosted endpoint."
+      ],
+      "requirements": [
+        "NVIDIA account",
+        "Developer Program membership"
+      ],
+      "sourceUrl": "https://docs.api.nvidia.com/nim/docs/run-anywhere",
+      "sourceLabel": "NVIDIA NIM documentation",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "free access to NIM API endpoints for prototyping",
+        "Access to NIM microservices is available through the duration of program membership"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "kilo-auto-free",
+      "priority": 2,
+      "provider": "Kilo",
+      "name": "Auto Free + free models",
+      "model": "Rotating coding-agent model pool",
+      "accessTypes": [
+        "Agent"
+      ],
+      "summary": "Zero-cost hosted models in Kilo Code, including automatic free routing.",
+      "detail": "Kilo derives its public free-model list from live catalog pricing and lets users select any active model marked free in its IDE, CLI, and cloud tools.",
+      "expiresAt": null,
+      "expiryNote": "No fixed end date; individual models and promotions can enter or leave the free pool.",
+      "primaryLimit": "Models rotate",
+      "limitations": [
+        "Available models change as provider pricing and promotions change.",
+        "Upstream providers may impose rate limits.",
+        "Auto Free can route prompts to providers that log prompts and outputs or use them to improve services."
+      ],
+      "requirements": [
+        "Free Kilo account",
+        "Kilo Code extension, CLI, or cloud tool"
+      ],
+      "sourceUrl": "https://kilo.ai/landing/free-models",
+      "sourceLabel": "Kilo live free-model catalog",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "active hosted models with zero input-token and zero output-token pricing",
+        "No credit card is required for free models"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "openrouter-free-models",
+      "priority": 3,
+      "provider": "OpenRouter",
+      "name": "Free models router",
+      "model": "openrouter/free and :free models",
+      "accessTypes": [
+        "API",
+        "Chatbot"
+      ],
+      "summary": "A unified API and chat interface for a rotating set of free models.",
+      "detail": "Use the openrouter/free router for automatic selection or choose a model whose identifier ends in :free.",
+      "expiresAt": null,
+      "expiryNote": "No fixed end date; free model availability can change.",
+      "primaryLimit": "50 requests daily",
+      "limitations": [
+        "Accounts without at least $10 in purchased credits receive 50 free-model requests per day in total.",
+        "Free models have lower reliability and are not intended for production workloads.",
+        "Specific free models and providers can change."
+      ],
+      "requirements": [
+        "OpenRouter account",
+        "API key for programmatic access"
+      ],
+      "sourceUrl": "https://openrouter.ai/docs/faq",
+      "sourceLabel": "OpenRouter documentation",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "many free models available on OpenRouter",
+        "requests per day total"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "google-gemini-free-tier",
+      "priority": 4,
+      "provider": "Google AI Studio",
+      "name": "Gemini API free tier",
+      "model": "Eligible Gemini models",
+      "accessTypes": [
+        "API",
+        "Chatbot"
+      ],
+      "summary": "Free access to eligible Gemini models through the API and AI Studio.",
+      "detail": "New accounts begin on the Free tier and can use supported models up to their published model-specific limits.",
+      "expiresAt": null,
+      "expiryNote": "Ongoing tier with no published end date.",
+      "primaryLimit": "Model-specific quotas",
+      "limitations": [
+        "Only certain models include free-tier pricing.",
+        "Request and token limits vary by model and can be lower for preview models.",
+        "Higher tiers require an active billing account."
+      ],
+      "requirements": [
+        "Google account",
+        "Active Google AI project or free trial"
+      ],
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/billing?hl=en",
+      "sourceLabel": "Gemini API billing documentation",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "New accounts begin on the Free Tier",
+        "allows access to certain models in the Gemini API and AI Studio"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "cloudflare-workers-ai-free",
+      "priority": 5,
+      "provider": "Cloudflare",
+      "name": "Workers AI free allocation",
+      "model": "Serverless LLM catalog",
+      "accessTypes": [
+        "API"
+      ],
+      "summary": "A daily no-charge allocation across Cloudflare's Workers AI models.",
+      "detail": "The free allocation applies across the Workers AI catalog and resets each day at 00:00 UTC.",
+      "expiresAt": null,
+      "expiryNote": "Ongoing allocation with no published end date.",
+      "primaryLimit": "10,000 neurons daily",
+      "limitations": [
+        "Usage is measured in model-dependent neurons rather than a fixed request count.",
+        "Operations fail after the daily allocation is exhausted on Workers Free.",
+        "A Cloudflare Worker is also subject to Workers plan limits."
+      ],
+      "requirements": [
+        "Cloudflare account",
+        "Workers project"
+      ],
+      "sourceUrl": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+      "sourceLabel": "Cloudflare Workers AI pricing",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "10,000 Neurons per day at no charge",
+        "All limits reset daily at 00:00 UTC"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "github-models-free",
+      "priority": 6,
+      "provider": "GitHub",
+      "name": "GitHub Models included usage",
+      "model": "Models catalog",
+      "accessTypes": [
+        "API",
+        "Chatbot"
+      ],
+      "summary": "Rate-limited model experimentation through the marketplace and API.",
+      "detail": "Every GitHub account receives included free usage across supported models for prototyping and experimentation.",
+      "expiresAt": null,
+      "expiryNote": "Ongoing included usage with no published end date.",
+      "primaryLimit": "Per-model rate limits",
+      "limitations": [
+        "Quotas vary by model and by the account's GitHub Copilot plan.",
+        "Organizations and repositories support remains in public preview.",
+        "Usage is blocked after the free quota unless paid usage is enabled."
+      ],
+      "requirements": [
+        "GitHub account",
+        "Fine-grained token for API access"
+      ],
+      "sourceUrl": "https://docs.github.com/en/billing/concepts/product-billing/github-models",
+      "sourceLabel": "GitHub Models billing documentation",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "rate-limited access to GitHub Models at no cost",
+        "Access to all supported models in the catalog"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "groq-free-plan",
+      "priority": 7,
+      "provider": "Groq",
+      "name": "GroqCloud free plan",
+      "model": "Hosted open-model catalog",
+      "accessTypes": [
+        "API"
+      ],
+      "summary": "Free, rate-limited API inference across eligible GroqCloud models.",
+      "detail": "Groq publishes separate request-per-minute, request-per-day, token-per-minute, and token-per-day limits for each model.",
+      "expiresAt": null,
+      "expiryNote": "Ongoing plan with no published end date.",
+      "primaryLimit": "Limits vary by model",
+      "limitations": [
+        "The first reached request or token limit blocks additional usage.",
+        "Limits apply at the organization level, not per user.",
+        "Exact account limits can differ from the published baseline."
+      ],
+      "requirements": [
+        "GroqCloud account",
+        "API key"
+      ],
+      "sourceUrl": "https://console.groq.com/docs/rate-limits",
+      "sourceLabel": "Groq rate-limit documentation",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "Free Plan Limits",
+        "Rate limits apply at the organization level"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "hugging-face-inference-credits",
+      "priority": 8,
+      "provider": "Hugging Face",
+      "name": "Inference Providers credits",
+      "model": "Provider-routed model catalog",
+      "accessTypes": [
+        "API"
+      ],
+      "summary": "A small monthly credit for trying supported inference providers.",
+      "detail": "Free-user credits automatically apply to requests routed through Hugging Face Inference Providers.",
+      "expiresAt": null,
+      "expiryNote": "Credits refresh monthly; no published program end date.",
+      "primaryLimit": "$0.10 monthly credit",
+      "limitations": [
+        "The free-user credit amount is explicitly subject to change.",
+        "The credit can cover very little usage on expensive models.",
+        "Additional requests require purchased credits."
+      ],
+      "requirements": [
+        "Free Hugging Face account",
+        "User access token"
+      ],
+      "sourceUrl": "https://huggingface.co/docs/inference-providers/en/pricing",
+      "sourceLabel": "Hugging Face pricing documentation",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "Free Users",
+        "$0.10, subject to change"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "cohere-trial-key",
+      "priority": 9,
+      "provider": "Cohere",
+      "name": "Evaluation API key",
+      "model": "Command and North models",
+      "accessTypes": [
+        "API"
+      ],
+      "summary": "A free evaluation key for Cohere chat, embedding, and reranking APIs.",
+      "detail": "Registration includes a rate-limited trial key intended for experimentation and proofs of concept.",
+      "expiresAt": null,
+      "expiryNote": "No published trial end date; keys can expire and may need replacement.",
+      "primaryLimit": "1,000 calls monthly",
+      "limitations": [
+        "Trial keys are limited to 1,000 API calls per month.",
+        "Chat models are generally limited to 20 requests per minute.",
+        "Trial keys are not intended for serving production applications."
+      ],
+      "requirements": [
+        "Cohere account",
+        "Trial API key"
+      ],
+      "sourceUrl": "https://docs.cohere.com/v2/docs/rate-limits",
+      "sourceLabel": "Cohere rate-limit documentation",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "evaluation keys (free but limited in usage)",
+        "limited to 1,000 API calls a month"
+      ],
+      "lastCheckError": null
+    },
+    {
+      "id": "mistral-api-free-mode",
+      "priority": 10,
+      "provider": "Mistral AI",
+      "name": "Studio API free mode",
+      "model": "Eligible Mistral models",
+      "accessTypes": [
+        "API"
+      ],
+      "summary": "No-card API access with limited free usage in Mistral Studio.",
+      "detail": "Free mode enables API-key creation immediately; current quotas are displayed on the account's Limits page.",
+      "expiresAt": null,
+      "expiryNote": "Ongoing mode with no published end date.",
+      "primaryLimit": "Account-specific limits",
+      "limitations": [
+        "Mistral does not publish one universal numeric free-tier quota.",
+        "Available models and limits are shown inside the account dashboard.",
+        "Higher limits and paid usage require the Scale plan."
+      ],
+      "requirements": [
+        "Mistral Studio account",
+        "API key"
+      ],
+      "sourceUrl": "https://docs.mistral.ai/getting-started/quickstarts/studio/activate-and-generate-api-key",
+      "sourceLabel": "Mistral Studio documentation",
+      "status": "active",
+      "lastCheckedAt": "2026-07-21T21:22:19Z",
+      "evidence": [
+        "API access is enabled by default with no credit card required",
+        "limited usage and rate limits"
+      ],
+      "lastCheckError": null
+    }
+  ]
+}

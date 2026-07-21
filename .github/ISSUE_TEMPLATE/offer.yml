@@ -1,0 +1,57 @@
+name: Submit an offer
+description: Suggest a free LLM API, chatbot, or agent offer backed by an official source.
+title: "[Offer]: "
+labels: [offer]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the catalogue current. We only publish offers that can be verified on an official provider page.
+  - type: input
+    id: provider
+    attributes:
+      label: Provider and offer name
+      placeholder: Example AI — launch-week API access
+    validations:
+      required: true
+  - type: dropdown
+    id: access
+    attributes:
+      label: Access type
+      multiple: true
+      options:
+        - API
+        - Chatbot
+        - Agent or coding assistant
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Official source URL
+      description: Link directly to the provider's pricing, documentation, terms, changelog, or announcement.
+      placeholder: https://provider.example/docs/free-offer
+    validations:
+      required: true
+  - type: input
+    id: expiry
+    attributes:
+      label: Expiration date
+      description: Use YYYY-MM-DD, or say that the provider publishes no fixed end date.
+      placeholder: 2026-08-15
+    validations:
+      required: true
+  - type: textarea
+    id: limitations
+    attributes:
+      label: Usage limitations
+      description: Include quotas, eligible models, account or payment requirements, geography, privacy terms, and production restrictions.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting official text
+      description: Quote the short lines on the official page that establish free access, expiration, and limits.
+    validations:
+      required: true
