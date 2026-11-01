@@ -25,6 +25,7 @@ const offer: Offer = {
 
 describe('offer catalogue helpers', () => {
   it('searches provider, model, limits, and requirements', () => {
+    expect(offerMatchesSearch(offer, '  Example AI ')).toBe(true)
     expect(offerMatchesSearch(offer, 'example 2')).toBe(true)
     expect(offerMatchesSearch(offer, '50 requests')).toBe(true)
     expect(offerMatchesSearch(offer, 'api key')).toBe(true)
