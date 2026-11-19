@@ -313,18 +313,25 @@ def check_workflow_wiring(wf: Path) -> list[str]:
                 problems.append(f"{rel}: job {name!r} (guard caller) must set permissions: {{}}")
 
     for name, body in jobs.items():
-        needs_recheck = _needs_shabbat_guard(body) and _runs_on_is_not_plain_ubuntu(body)
-        steps = _steps(body)
-        has_recheck = any(_step_id(s) == "recheck" for s in steps)
-        if needs_recheck and not has_recheck:
-            problems.append(
-                f"{rel}: job {name!r} runs on a different runner than the "
-                "hosted guard and must start with an on-runner recheck step"
-            )
-        if not has_recheck:
+        if _is_guard_caller(body):
             continue
-        if not steps or _step_id(steps[0]) != "recheck":
-            problems.append(f"{rel}: job {name!r} recheck step must be the first step")
+        steps = _steps(body)
+        if not steps:
+            if _job_level_uses(body):
+                problems.append(
+                    f"{rel}: job {name!r} uses a reusable workflow and has no "
+                    "steps, so it cannot recheck as a first step; do not put "
+                    "Shabbat-gated work behind a job-level uses:"
+                )
+            continue
+        # Every work job — plain hosted ubuntu-latest included — must recheck
+        # as its own first step. No job may rely on another job's earlier recheck.
+        if _step_id(steps[0]) != "recheck":
+            problems.append(
+                f"{rel}: job {name!r} must start with an on-runner recheck "
+                "step (id: recheck, first step); a job-level if: on another "
+                "job's proceed is not enough"
+            )
             continue
         first = steps[0]
         if "shell: bash" not in first:
@@ -334,6 +341,28 @@ def check_workflow_wiring(wf: Path) -> list[str]:
                 problems.append(
                     f"{rel}: job {name!r} step {i} must set "
                     "if: steps.recheck.outputs.proceed == 'true'"
+                )
+        for i, step in enumerate(steps):
+            if not _step_does_git_push(step):
+                continue
+            if i == 0 or not _is_recheck_step(steps[i - 1]):
+                problems.append(
+                    f"{rel}: job {name!r} step {i + 1} runs git push and must "
+                    "be immediately preceded by a recheck step (id: recheck "
+                    "or recheck-*) so a delayed push cannot enter the window"
+                )
+                continue
+            prev = steps[i - 1]
+            prev_id = _step_id(prev)
+            if "shell: bash" not in prev:
+                problems.append(
+                    f"{rel}: job {name!r} step {i} (recheck before git push) "
+                    "must set shell: bash"
+                )
+            if not _step_gated_on_recheck_id(step, prev_id):
+                problems.append(
+                    f"{rel}: job {name!r} step {i + 1} runs git push and must "
+                    f"set if: steps.{prev_id}.outputs.proceed == 'true'"
                 )
         if not _job_publishes_recheck(body):
             # Only required if some other job depends on this one.
@@ -448,6 +477,36 @@ def _job_if_gated_on_need_proceed(job_body: str, src: str) -> bool:
     )
 
 
+def _is_guard_caller(job_body: str) -> bool:
+    """True only for a job-level uses: of the reusable Shabbat guard."""
+    head = job_body.split("steps:", 1)[0]
+    return bool(re.search(r"(?m)^\s+uses:\s*\S*shabbat-guard\.yml\s*$", head))
+
+
+def _job_level_uses(job_body: str) -> bool:
+    head = job_body.split("steps:", 1)[0]
+    return bool(re.search(r"(?m)^\s+uses:\s*\S+", head))
+
+
+def _is_recheck_step(step: str) -> bool:
+    sid = _step_id(step)
+    return bool(sid and (sid == "recheck" or sid.startswith("recheck-")))
+
+
+def _step_does_git_push(step: str) -> bool:
+    # Catch both a bare `git push` in a block scalar and `run: git push`.
+    return bool(re.search(r"(?m)^\s*(?:-\s+)?(?:run:\s*)?git push\b", step))
+
+
+def _step_gated_on_recheck_id(step: str, step_id: str) -> bool:
+    header = step.split("run:", 1)[0]
+    compact = re.sub(r"\s+", "", header)
+    return (
+        f"steps.{step_id}.outputs.proceed=='true'" in compact
+        or f'steps.{step_id}.outputs.proceed=="true"' in compact
+    )
+
+
 def _needs_shabbat_guard(job_body: str) -> bool:
     return bool(re.search(r"(?m)^\s+needs:\s*shabbat-guard\s*$", job_body)) or (
         "needs:" in job_body and "shabbat-guard" in job_body
@@ -547,6 +606,158 @@ on:
         raise SystemExit("expected 0 22/1 * * 5 to flag Fri 23:00 UTC in the PDT window")
 
 
+def _self_check_wiring() -> None:
+    """Negative fixtures: a deploy job and a plain hosted job must not skip recheck."""
+    import tempfile
+
+    deploy_no_recheck = """
+name: pages
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+jobs:
+  shabbat-guard:
+    uses: ./.github/workflows/shabbat-guard.yml
+    permissions: {}
+  build:
+    needs: shabbat-guard
+    if: needs.shabbat-guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.recheck.outputs.proceed }}
+    steps:
+      - id: recheck
+        shell: bash
+        run: echo proceed=true
+      - if: steps.recheck.outputs.proceed == 'true'
+        run: echo build
+  deploy:
+    needs: build
+    if: needs.build.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+"""
+    plain_hosted_no_recheck = """
+name: cleanup
+on:
+  schedule:
+    - cron: "0 3 * * 1-5"
+jobs:
+  shabbat-guard:
+    uses: ./.github/workflows/shabbat-guard.yml
+    permissions: {}
+  cleanup:
+    needs: shabbat-guard
+    if: needs.shabbat-guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: echo delete branches
+"""
+
+    def _problems(src: str, name: str) -> list[str]:
+        with tempfile.TemporaryDirectory() as td:
+            wf = Path(td) / name
+            wf.write_text(src)
+            return check_workflow_wiring(wf)
+
+    deploy_probs = _problems(deploy_no_recheck, "pages.yml")
+    if not any("deploy" in p and "recheck" in p for p in deploy_probs):
+        raise SystemExit(
+            "wiring check missed negative fixture: deploy job with no recheck: "
+            f"{deploy_probs!r}"
+        )
+    plain_probs = _problems(plain_hosted_no_recheck, "clear_old_branches.yml")
+    if not any("cleanup" in p and "recheck" in p for p in plain_probs):
+        raise SystemExit(
+            "wiring check missed negative fixture: plain hosted job with no recheck: "
+            f"{plain_probs!r}"
+        )
+
+    # A work job that merely mentions shabbat-guard.yml and has a step-level
+    # uses: must not be treated as the guard caller.
+    mention_not_caller = """
+name: pages
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+jobs:
+  shabbat-guard:
+    uses: ./.github/workflows/shabbat-guard.yml
+    permissions: {}
+  build:
+    needs: shabbat-guard
+    if: needs.shabbat-guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: echo see .github/workflows/shabbat-guard.yml
+"""
+    mention_probs = _problems(mention_not_caller, "pages.yml")
+    if not any("build" in p and "recheck" in p for p in mention_probs):
+        raise SystemExit(
+            "wiring check missed work job that mentions shabbat-guard.yml "
+            f"but is not the caller: {mention_probs!r}"
+        )
+
+    # Push immediately after a fresh recheck, but not gated on its output.
+    push_ungated = """
+name: pages
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+jobs:
+  shabbat-guard:
+    uses: ./.github/workflows/shabbat-guard.yml
+    permissions: {}
+  build:
+    needs: shabbat-guard
+    if: needs.shabbat-guard.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - id: recheck
+        shell: bash
+        run: echo proceed=true
+      - id: recheck-before-push
+        if: steps.recheck.outputs.proceed == 'true'
+        shell: bash
+        run: echo proceed=true
+      - if: steps.recheck.outputs.proceed == 'true'
+        run: |
+          git push
+"""
+    push_probs = _problems(push_ungated, "pages.yml")
+    if not any("git push" in p and "recheck-before-push" in p for p in push_probs):
+        raise SystemExit(
+            "wiring check missed git push not gated on the fresh recheck: "
+            f"{push_probs!r}"
+        )
+
+    uses_work = """
+name: pages
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+jobs:
+  shabbat-guard:
+    uses: ./.github/workflows/shabbat-guard.yml
+    permissions: {}
+  work:
+    needs: shabbat-guard
+    if: needs.shabbat-guard.outputs.proceed == 'true'
+    uses: org/repo/.github/workflows/other.yml
+"""
+    uses_probs = _problems(uses_work, "pages.yml")
+    if not any("work" in p and "uses" in p for p in uses_probs):
+        raise SystemExit(
+            "wiring check missed job-level uses: work job: "
+            f"{uses_probs!r}"
+        )
+
+
 if __name__ == "__main__":
     _self_check_extract()
+    _self_check_wiring()
     raise SystemExit(main())

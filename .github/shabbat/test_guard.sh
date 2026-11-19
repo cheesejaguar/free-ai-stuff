@@ -38,6 +38,16 @@ expect() {
     echo "      output:"
     printf '      %s\n' "$out"
     fail=$((fail + 1))
+  elif [[ "$want" == "false" ]] && ! printf '%s\n' "$out" | grep -q '::warning::'; then
+    echo "FAIL  ${label}: skip path must emit ::warning:: with the reason"
+    echo "      output:"
+    printf '      %s\n' "$out"
+    fail=$((fail + 1))
+  elif [[ "$want" == "true" ]] && printf '%s\n' "$out" | grep -q '::warning::'; then
+    echo "FAIL  ${label}: proceed=true must not emit ::warning::"
+    echo "      output:"
+    printf '      %s\n' "$out"
+    fail=$((fail + 1))
   else
     echo "PASS  ${label}  (${shown} -> proceed=${got})"
   fi
@@ -87,8 +97,12 @@ ran=$((ran + 1))
 if [[ "$got" != "false" ]]; then
   echo "FAIL  GITHUB_OUTPUT was not written with proceed=false (got '${got}')"
   fail=$((fail + 1))
+elif ! printf '%s\n' "$out" | grep -q '::warning::'; then
+  echo "FAIL  in-window skip (GITHUB_OUTPUT case) must emit ::warning:: with the reason"
+  printf '      %s\n' "$out"
+  fail=$((fail + 1))
 else
-  echo "PASS  GITHUB_OUTPUT written (proceed=false)"
+  echo "PASS  GITHUB_OUTPUT written (proceed=false) and ::warning:: emitted"
 fi
 
 # Always-zero exit even when skipping (do not fail the job)
@@ -148,8 +162,12 @@ elif ! printf '%s\n' "$out" | grep -Eq '(-0700|-0800)|tzdata|offset|\+0000'; the
   echo "FAIL  missing-tzdata skip did not explain why (expected offset / tzdata in the log)"
   printf '      %s\n' "$out"
   fail=$((fail + 1))
+elif ! printf '%s\n' "$out" | grep -q '::warning::'; then
+  echo "FAIL  missing-tzdata skip must emit ::warning:: with the reason (so a skip is not silently green)"
+  printf '      %s\n' "$out"
+  fail=$((fail + 1))
 else
-  echo "PASS  missing tzdata fails closed (proceed=false, exit 0)"
+  echo "PASS  missing tzdata fails closed (proceed=false, exit 0, ::warning::)"
 fi
 
 echo

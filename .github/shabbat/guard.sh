@@ -41,10 +41,10 @@ dow="" time="" off="" pretty=""
 [[ -n "$fields" ]] && eval "$fields"
 
 if [[ -z "$fields" ]]; then
-  echo "Shabbat guard: date failed; cannot resolve America/Los_Angeles. Failing closed (proceed=false); the window will not be judged in UTC."
+  echo "::warning::Shabbat guard: date failed; cannot resolve America/Los_Angeles. Failing closed (proceed=false); the window will not be judged in UTC."
   result=false
 elif [[ "$off" != "-0700" && "$off" != "-0800" ]]; then
-  echo "Shabbat guard: America/Los_Angeles offset is '${off}', not -0700/-0800 (+0000 means tzdata is missing or date failed). Failing closed (proceed=false); the window will not be judged in UTC."
+  echo "::warning::Shabbat guard: America/Los_Angeles offset is '${off}', not -0700/-0800 (+0000 means tzdata is missing or date failed). Failing closed (proceed=false); the window will not be judged in UTC."
   result=false
 else
   skip=0
@@ -56,7 +56,7 @@ else
   fi
 
   if [[ "$skip" -eq 1 ]]; then
-    echo "Shabbat guard: skipping work; local time is ${pretty} (America/Los_Angeles), inside Fri 16:00 to Sat 21:30 (end exclusive)."
+    echo "::warning::Shabbat guard: skipping work; local time is ${pretty} (America/Los_Angeles), inside Fri 16:00 to Sat 21:30 (end exclusive)."
     result=false
   else
     echo "Shabbat guard: proceeding; local time is ${pretty} (America/Los_Angeles)."
