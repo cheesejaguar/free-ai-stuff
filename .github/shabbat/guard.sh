@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Shabbat guard (LS-126). Backstop only: scheduled crons must already
+# avoid the window. This exits successfully and reports proceed=false if
+# America/Los_Angeles local time is inside [Fri 16:00, Sat 21:30).
+#
+# Always exits 0. Prints proceed=true|false to stdout and, when set, appends
+# the same to $GITHUB_OUTPUT so a job-level `if:` can skip later jobs.
+#
+# Fails closed: if tzdata is missing (offset is not -0700/-0800) or date
+# fails, it reports proceed=false and never judges the window in UTC.
+#
+# SHABBAT_GUARD_NOW, if set, is a timestamp interpreted in America/Los_Angeles.
+# Used only by tests. Accepts GNU date -d or BSD date -j.
+
+set -euo pipefail
+
+if [[ -n "${SHABBAT_GUARD_NOW:-}" ]]; then
+  if date -d "${SHABBAT_GUARD_NOW}" +%s >/dev/null 2>&1; then
+    mode=gnu
+  elif date -j -f "%Y-%m-%d %H:%M:%S" "${SHABBAT_GUARD_NOW}" +%s >/dev/null 2>&1; then
+    mode=bsd
+  else
+    echo "Shabbat guard: cannot parse SHABBAT_GUARD_NOW=${SHABBAT_GUARD_NOW}" >&2
+    exit 1
+  fi
+else
+  mode=now
+fi
+
+# %u: 1=Mon ... 5=Fri 6=Sat 7=Sun. %H%M is always 4 zero-padded decimal digits.
+# %z is the local offset; -0700 (PDT) or -0800 (PST) proves tzdata resolved.
+# Branch the no-arg call so an empty array is never expanded under set -u (bash 3.2).
+fmt='dow=%u time=%H%M off=%z pretty=%Y-%m-%dT%H:%M:%S%z'
+case "$mode" in
+  gnu) fields="$(TZ=America/Los_Angeles date -d "${SHABBAT_GUARD_NOW}" +"$fmt" 2>/dev/null)" || fields="" ;;
+  bsd) fields="$(TZ=America/Los_Angeles date -j -f "%Y-%m-%d %H:%M:%S" "${SHABBAT_GUARD_NOW}" +"$fmt" 2>/dev/null)" || fields="" ;;
+  *) fields="$(TZ=America/Los_Angeles date +"$fmt" 2>/dev/null)" || fields="" ;;
+esac
+
+dow="" time="" off="" pretty=""
+[[ -n "$fields" ]] && eval "$fields"
+
+if [[ -z "$fields" ]]; then
+  echo "::warning::Shabbat guard: date failed; cannot resolve America/Los_Angeles. Failing closed (proceed=false); the window will not be judged in UTC."
+  result=false
+elif [[ "$off" != "-0700" && "$off" != "-0800" ]]; then
+  echo "::warning::Shabbat guard: America/Los_Angeles offset is '${off}', not -0700/-0800 (+0000 means tzdata is missing or date failed). Failing closed (proceed=false); the window will not be judged in UTC."
+  result=false
+else
+  skip=0
+  # String compare on zero-padded HHMM. Sat 21:30 is the exclusive end.
+  if [[ "$dow" == "5" && "$time" > "1559" ]]; then
+    skip=1
+  elif [[ "$dow" == "6" && "$time" < "2130" ]]; then
+    skip=1
+  fi
+
+  if [[ "$skip" -eq 1 ]]; then
+    echo "::warning::Shabbat guard: skipping work; local time is ${pretty} (America/Los_Angeles), inside Fri 16:00 to Sat 21:30 (end exclusive)."
+    result=false
+  else
+    echo "Shabbat guard: proceeding; local time is ${pretty} (America/Los_Angeles)."
+    result=true
+  fi
+fi
+
+echo "proceed=${result}"
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  echo "proceed=${result}" >> "${GITHUB_OUTPUT}"
+fi
+exit 0
