@@ -271,6 +271,213 @@ def guard_sync_ok() -> list[str]:
     return errors
 
 
+
+def _job_blocks(text: str) -> dict[str, str]:
+    """Split a workflow into indent-2 job name -> raw job body (including name line)."""
+    lines = text.splitlines()
+    try:
+        jobs_i = next(i for i, ln in enumerate(lines) if ln == "jobs:" or ln.startswith("jobs:"))
+    except StopIteration:
+        return {}
+    blocks: dict[str, list[str]] = {}
+    current: str | None = None
+    for ln in lines[jobs_i + 1 :]:
+        if ln.startswith("  ") and not ln.startswith("    ") and ln.strip().endswith(":"):
+            name = ln.strip().rstrip(":")
+            current = name
+            blocks[current] = [ln]
+        elif current is not None:
+            if ln and not ln.startswith(" ") and not ln.startswith("\t"):
+                break
+            blocks[current].append(ln)
+    return {k: "\n".join(v) for k, v in blocks.items()}
+
+
+def check_workflow_wiring(wf: Path) -> list[str]:
+    """Enforce Kyle's wiring nits/minors on workflows that use the Shabbat guard."""
+    text = wf.read_text()
+    rel = f".github/workflows/{wf.name}"
+    problems: list[str] = []
+    if "shabbat-guard.yml" not in text and wf.name != "shabbat-guard.yml":
+        return problems
+
+    if wf.name == "shabbat-guard.yml":
+        if "permissions: {}" not in text:
+            problems.append(f"{rel}: reusable guard job must set permissions: {{}}")
+        return problems
+
+    jobs = _job_blocks(text)
+    for name, body in jobs.items():
+        if "shabbat-guard.yml" in body and "uses:" in body:
+            if "permissions: {}" not in body:
+                problems.append(f"{rel}: job {name!r} (guard caller) must set permissions: {{}}")
+
+    for name, body in jobs.items():
+        needs_recheck = _needs_shabbat_guard(body) and _runs_on_is_not_plain_ubuntu(body)
+        steps = _steps(body)
+        has_recheck = any(_step_id(s) == "recheck" for s in steps)
+        if needs_recheck and not has_recheck:
+            problems.append(
+                f"{rel}: job {name!r} runs on a different runner than the "
+                "hosted guard and must start with an on-runner recheck step"
+            )
+        if not has_recheck:
+            continue
+        if not steps or _step_id(steps[0]) != "recheck":
+            problems.append(f"{rel}: job {name!r} recheck step must be the first step")
+            continue
+        first = steps[0]
+        if "shell: bash" not in first:
+            problems.append(f"{rel}: job {name!r} recheck step must set shell: bash")
+        for i, step in enumerate(steps[1:], start=2):
+            if not _step_gated_on_recheck(step):
+                problems.append(
+                    f"{rel}: job {name!r} step {i} must set "
+                    "if: steps.recheck.outputs.proceed == 'true'"
+                )
+        if not _job_publishes_recheck(body):
+            # Only required if some other job depends on this one.
+            dependents = [
+                other for other, obody in jobs.items()
+                if other != name and _needs_job(obody, name)
+            ]
+            if dependents:
+                problems.append(
+                    f"{rel}: job {name!r} has dependents {dependents} and must "
+                    "publish outputs.proceed from steps.recheck.outputs.proceed"
+                )
+
+    recheck_jobs = [n for n, b in jobs.items() if "id: recheck" in b]
+    for name, body in jobs.items():
+        for src in recheck_jobs:
+            if name == src:
+                continue
+            if not _needs_job(body, src):
+                continue
+            if not _job_if_gated_on_need_proceed(body, src):
+                problems.append(
+                    f"{rel}: job {name!r} needs {src!r} (which has a recheck) and "
+                    f"must set if: needs.{src}.outputs.proceed == 'true' "
+                    "so it does not run after a skipped-in-job recheck"
+                )
+    return problems
+
+
+def _steps(job_body: str) -> list[str]:
+    lines = job_body.splitlines()
+    start = None
+    for i, ln in enumerate(lines):
+        if ln.strip() == "steps:" or ln.strip().startswith("steps:"):
+            start = i + 1
+            break
+    if start is None:
+        return []
+    steps: list[list[str]] = []
+    current: list[str] = []
+    item_indent: int | None = None
+    for ln in lines[start:]:
+        raw = ln.replace("\t", "        ")
+        if not raw.strip():
+            if current:
+                current.append(ln)
+            continue
+        stripped = raw.lstrip(" ")
+        lead = len(raw) - len(stripped)
+        if stripped.startswith("- "):
+            if item_indent is None:
+                item_indent = lead
+            if lead == item_indent:
+                if current:
+                    steps.append(current)
+                current = [ln]
+                continue
+        if current:
+            current.append(ln)
+    if current:
+        steps.append(current)
+    return ["\n".join(s) for s in steps]
+
+
+def _step_id(step: str) -> str | None:
+    m = re.search(r"(?m)^\s+id:\s*(\S+)\s*$", step)
+    if m:
+        return m.group(1).strip().strip("'\"")
+    m = re.search(r"(?m)^\s*-\s+id:\s*(\S+)\s*$", step)
+    return m.group(1).strip().strip("'\"") if m else None
+
+
+def _step_gated_on_recheck(step: str) -> bool:
+    """True if the step's if: requires steps.recheck.outputs.proceed == true."""
+    # Job/step if: may be a folded scalar; search the step header (before run:/uses: blocks' bodies).
+    header = step.split("run:", 1)[0]
+    if_lines = []
+    capturing = False
+    for ln in header.splitlines():
+        if re.search(r"(?m)^\s+if:\s*", ln) or ln.lstrip().startswith("- if:"):
+            capturing = True
+            if_lines.append(ln.split("if:", 1)[1])
+            continue
+        if capturing:
+            if re.search(r"(?m)^\s+\w", ln) and not ln.strip().startswith("|") and not ln.strip().startswith(">"):
+                # next key
+                break
+            if_lines.append(ln)
+    expr = " ".join(s.strip() for s in if_lines)
+    return bool(
+        re.search(r"steps\.recheck\.outputs\.proceed\s*==\s*['\"]true['\"]", expr)
+    )
+
+
+def _job_publishes_recheck(job_body: str) -> bool:
+    # outputs: proceed: ${{ steps.recheck.outputs.proceed }}
+    head = job_body.split("steps:", 1)[0]
+    return bool(
+        re.search(r"steps\.recheck\.outputs\.proceed", head)
+        and re.search(r"(?m)^\s+outputs:\s*$", head)
+        and re.search(r"(?m)^\s+proceed:\s*", head)
+    )
+
+
+def _job_if_gated_on_need_proceed(job_body: str, src: str) -> bool:
+    head = job_body.split("steps:", 1)[0]
+    return bool(
+        re.search(
+            rf"needs\.{re.escape(src)}\.outputs\.proceed\s*==\s*['\"]true['\"]",
+            head,
+        )
+    )
+
+
+def _needs_shabbat_guard(job_body: str) -> bool:
+    return bool(re.search(r"(?m)^\s+needs:\s*shabbat-guard\s*$", job_body)) or (
+        "needs:" in job_body and "shabbat-guard" in job_body
+    )
+
+
+def _needs_job(job_body: str, job_name: str) -> bool:
+    if re.search(rf"(?m)^\s+needs:\s*{re.escape(job_name)}\s*$", job_body):
+        return True
+    if "needs:" in job_body and re.search(rf"\b{re.escape(job_name)}\b", job_body):
+        return "uses:" not in job_body.split("needs:", 1)[0][-40:]
+    return False
+
+
+def _runs_on_is_not_plain_ubuntu(job_body: str) -> bool:
+    """True unless runs-on is exactly the scalar ubuntu-latest.
+
+    List forms (`[self-hosted, linux]`), mappings, fleet expressions, and
+    block scalars all require an on-runner recheck.
+    """
+    m = re.search(r"(?m)^(\s*)runs-on:\s*(.*)$", job_body)
+    if not m:
+        return False
+    rest = m.group(2).strip()
+    # Strip a trailing comment
+    if "#" in rest:
+        rest = rest.split("#", 1)[0].strip()
+    return rest != "ubuntu-latest"
+
+
 def main() -> int:
     if not WF_DIR.is_dir():
         print(f"No {WF_DIR}; nothing to check.")
@@ -304,6 +511,9 @@ def main() -> int:
                 print(f"SAFE  {rel}  cron `{expr}`  fires_18m={len(hits)}")
     for err in guard_sync_ok():
         problems.append(err)
+    for wf in files:
+        for err in check_workflow_wiring(wf):
+            problems.append(err)
     if problems:
         print()
         print("UNSAFE / failed checks:")
