@@ -1,0 +1,67 @@
+name: Shabbat guard
+on:
+  workflow_call:
+    outputs:
+      proceed:
+        description: "true if work may continue"
+        value: ${{ jobs.guard.outputs.proceed }}
+jobs:
+  guard:
+    runs-on: ubuntu-latest   # hosted, not a self-hosted/fleet runner
+    outputs:
+      proceed: ${{ steps.guard.outputs.proceed }}
+    steps:
+      - id: guard
+        name: Shabbat guard
+        run: |
+          # BEGIN SHABBAT_GUARD
+          # Shabbat guard (LS-126). Backstop only: scheduled crons must already
+          # avoid the window. This exits successfully and reports proceed=false if
+          # America/Los_Angeles local time is inside [Fri 16:00, Sat 21:30).
+          #
+          # Always exits 0. Prints proceed=true|false to stdout and, when set, appends
+          # the same to $GITHUB_OUTPUT so a job-level `if:` can skip later jobs.
+          #
+          # SHABBAT_GUARD_NOW, if set, is a timestamp interpreted in America/Los_Angeles.
+          # Used only by tests. Accepts GNU date -d or BSD date -j.
+          
+          set -euo pipefail
+          
+          if [[ -n "${SHABBAT_GUARD_NOW:-}" ]]; then
+            if date -d "${SHABBAT_GUARD_NOW}" +%s >/dev/null 2>&1; then
+              date_args=(-d "${SHABBAT_GUARD_NOW}")
+            elif date -j -f "%Y-%m-%d %H:%M:%S" "${SHABBAT_GUARD_NOW}" +%s >/dev/null 2>&1; then
+              date_args=(-j -f "%Y-%m-%d %H:%M:%S" "${SHABBAT_GUARD_NOW}")
+            else
+              echo "Shabbat guard: cannot parse SHABBAT_GUARD_NOW=${SHABBAT_GUARD_NOW}" >&2
+              exit 1
+            fi
+          else
+            date_args=()
+          fi
+          
+          # %u: 1=Mon ... 5=Fri 6=Sat 7=Sun. %H%M is always 4 zero-padded decimal digits.
+          eval "$(TZ=America/Los_Angeles date "${date_args[@]}" +'dow=%u time=%H%M pretty=%Y-%m-%dT%H:%M:%S%z')"
+          
+          skip=0
+          # String compare on zero-padded HHMM. Sat 21:30 is the exclusive end.
+          if [[ "$dow" == "5" && "$time" > "1559" ]]; then
+            skip=1
+          elif [[ "$dow" == "6" && "$time" < "2130" ]]; then
+            skip=1
+          fi
+          
+          if [[ "$skip" -eq 1 ]]; then
+            echo "Shabbat guard: skipping work; local time is ${pretty} (America/Los_Angeles), inside Fri 16:00 to Sat 21:30 (end exclusive)."
+            result=false
+          else
+            echo "Shabbat guard: proceeding; local time is ${pretty} (America/Los_Angeles)."
+            result=true
+          fi
+          
+          echo "proceed=${result}"
+          if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+            echo "proceed=${result}" >> "${GITHUB_OUTPUT}"
+          fi
+          exit 0
+          # END SHABBAT_GUARD

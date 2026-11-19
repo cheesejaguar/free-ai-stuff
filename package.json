@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build && node scripts/generate-public-data.mjs dist",
     "preview": "vite preview",
-    "test": "vitest run src && node --test scripts/*.test.mjs",
+    "test": "vitest run src && node --test scripts/*.test.mjs && bash .github/shabbat/test_guard.sh && python3 .github/shabbat/test_crons.py",
     "check": "npm run test && npm run build",
     "refresh": "node scripts/refresh-offers.mjs"
   },

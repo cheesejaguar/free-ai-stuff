@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '17 13 * * *'
+    # Sun-Fri 13:17 UTC. Saturday 13:17 UTC is inside the window; Sunday 13:17
+    # is after 05:30 UTC so it stays. LS-126.
+    - cron: '17 13 * * 0-5'
   workflow_dispatch:
 
 permissions:
@@ -17,7 +19,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  shabbat-guard:
+    uses: ./.github/workflows/shabbat-guard.yml
+
   build:
+    needs: shabbat-guard
+    if: needs.shabbat-guard.outputs.proceed == 'true'
     runs-on: >-
       ${{
         (github.event_name == 'pull_request' &&
